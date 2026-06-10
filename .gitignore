@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments and IDE state
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+
+# Runtime uploads, outputs, reports, and generated artifacts
+input_images/
+OK_images/
+NG_images/
+report/
+reports/
+video_input/
+video_report/
+video_quality_report/
+web_uploads/
+web_results/
+web_video_uploads/
+web_video_results/
+web_ocr_uploads/
+web_ocr_results/
+web_enhance_uploads/
+web_enhance_results/
+enhance_output/
+image_enhance_test/
+scratch/
+_pptx_work/
+ui_backup_*/
+texts/
+
+# Local test/data folders
+OCR测试/
+命名测试/
+码率测试/
+tuxiang/
+
+# Generated report/media files
+*.xlsx
+*.xls
+*.csv
+*.log
+*.tmp
+*.psd
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.flv
+
+# Local large/reference assets
+duanwu_ankang_illustration_poster.png
+文件夹说明.png
+开发建议.docx

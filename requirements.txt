@@ -1,0 +1,9 @@
+opencv-contrib-python==4.10.0.84
+numpy
+pandas
+openpyxl
+pillow
+flask
+paddleocr==3.1.1
+paddlepaddle==3.1.1
+paddlex[ocr]==3.1.3

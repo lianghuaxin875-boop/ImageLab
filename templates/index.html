@@ -1,0 +1,1249 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图片质量检测平台</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v=logo-20260610-1">
+</head>
+<body data-module="home">
+  <header class="app-header" aria-label="平台顶部栏">
+    <div class="app-brand">
+      <div class="brand-mark" aria-label="ImageLab logo">
+        <span class="logo-lens"></span>
+        <span class="logo-corner c1"></span>
+        <span class="logo-corner c2"></span>
+        <span class="logo-corner c3"></span>
+        <span class="logo-corner c4"></span>
+      </div>
+      <div>
+        <strong>ImageLab 图像检测平台</strong>
+        <span id="currentModuleTitle">首页总览</span>
+      </div>
+    </div>
+    <div class="app-actions" aria-label="全局操作">
+      <button class="header-icon-button" type="button" data-go-module="history" title="通知">🔔<b>0</b></button>
+      <button class="header-icon-button" type="button" data-go-module="settings" title="帮助">?</button>
+      <button class="header-icon-button" type="button" data-go-module="settings" title="设置">⚙</button>
+      <div class="user-menu" aria-label="当前用户">
+        <span>👤</span>
+        <strong>管理员</strong>
+      </div>
+    </div>
+  </header>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-label="ImageLab logo">
+          <span class="logo-lens"></span>
+          <span class="logo-corner c1"></span>
+          <span class="logo-corner c2"></span>
+          <span class="logo-corner c3"></span>
+          <span class="logo-corner c4"></span>
+        </div>
+        <div>
+          <h1>ImageLab</h1>
+          <p>图像检测平台</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" type="button" data-module="home">
+          <span>首页总览</span>
+          <small>统计 / 功能入口 / 最近记录</small>
+        </button>
+        <button class="nav-item" type="button" data-module="image">
+          <span>质量检测</span>
+          <small>清晰度 / 曝光 / 噪声</small>
+        </button>
+        <button class="nav-item" type="button" data-module="video">
+          <span>视频码率</span>
+          <small>码率 / 帧率 / 分辨率</small>
+        </button>
+        <button class="nav-item" type="button" data-module="videoQuality">
+          <span>视频综合</span>
+          <small>清晰度 / 曝光 / 稳定性</small>
+        </button>
+        <button class="nav-item" type="button" data-module="ocr">
+          <span>OCR识别</span>
+          <small>PaddleOCR 2.0 / 图片文字</small>
+        </button>
+        <button class="nav-item" type="button" data-module="enhance">
+          <span>图像增强</span>
+          <small>规则自动 / 前后对比</small>
+        </button>
+        <button class="nav-item" type="button" data-module="history">
+          <span>检测历史</span>
+          <small>时间 / 模块 / 报告路径</small>
+        </button>
+        <button class="nav-item" type="button" data-module="settings">
+          <span>参数设置</span>
+          <small>阈值 / 权重 / OCR 参数</small>
+        </button>
+      </nav>
+
+      <button id="clearCacheButton" class="cache-button" type="button">清理网页缓存</button>
+      <p id="cacheStatus" class="cache-status">清理上传缓存和网页检测结果</p>
+    </aside>
+
+    <main class="main">
+      <header class="topbar" aria-label="顶部工具栏">
+        <label class="top-search">
+          <span>⌕</span>
+          <input type="search" placeholder="搜索模块、报告、OCR、图像增强">
+        </label>
+        <div class="top-actions" aria-label="快捷操作">
+          <button class="icon-button" type="button" data-go-module="history" title="通知">🔔<b>12</b></button>
+          <button class="icon-button" type="button" data-go-module="settings" title="帮助">?</button>
+          <button class="icon-button" type="button" data-go-module="settings" title="设置">⚙</button>
+          <div class="admin-chip" aria-label="当前用户">
+            <span>👤</span>
+            <strong>Admin</strong>
+          </div>
+        </div>
+      </header>
+
+      <aside class="mascot-widget idle" aria-live="polite" title="按住拖动机器人">
+        <div class="mascot-drag-handle" aria-hidden="true">拖动</div>
+        <div class="mascot robot-mascot" aria-hidden="true">
+          <div class="robot-antenna"></div>
+          <div class="robot-head">
+            <span class="robot-eye left"></span>
+            <span class="robot-eye right"></span>
+            <span class="robot-mouth"></span>
+          </div>
+          <div class="robot-body">
+            <span class="robot-core"></span>
+            <span class="robot-arm left"></span>
+            <span class="robot-arm right"></span>
+          </div>
+        </div>
+        <div class="mascot-bubble">
+          <small class="pet-badge">CodexPet</small>
+          <strong id="mascotTitle">Codex 电子宠物待命</strong>
+          <span id="mascotText">选择图片或视频后开始检测吧</span>
+          <em id="mascotTime">预计时间：等待任务</em>
+          <div class="pet-vitals" aria-label="电子宠物状态">
+            <span id="petMood">状态：待命</span>
+            <span id="petTask">任务：空闲</span>
+            <span class="pet-energy"><i id="petEnergy"></i></span>
+          </div>
+        </div>
+      </aside>
+
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Computer Vision Dashboard</p>
+          <h2>欢迎使用 ImageLab 图像检测平台</h2>
+          <p class="hero-copy">集图片质量检测、图像增强、视频分析、OCR识别于一体的智能检测平台。</p>
+          <p class="version-copy">当前检测器：{{ detector_version }}</p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <strong id="statusText">待命</strong>
+            <span>任务状态</span>
+          </div>
+          <div class="stat">
+            <strong id="countText">0/0</strong>
+            <span>检测数量</span>
+          </div>
+          <div class="stat">
+            <strong id="percentText">0%</strong>
+            <span>完成进度</span>
+          </div>
+        </div>
+      </header>
+
+      <section id="homeModule" class="module-section active home-section">
+        <section class="dashboard-overview" aria-label="首页数据总览">
+          <div class="overview-grid">
+            <div class="overview-card metric-blue">
+              <i>▧</i>
+              <span>今日检测图片</span>
+              <strong id="todayImageCount">0 张</strong>
+              <em>较昨日 ↑ 18%</em>
+            </div>
+            <div class="overview-card metric-purple">
+              <i>▣</i>
+              <span>今日检测视频</span>
+              <strong id="videoDetectCount">0 个</strong>
+              <em>视频任务统计</em>
+            </div>
+            <div class="overview-card metric-green">
+              <i>▤</i>
+              <span>今日OCR识别</span>
+              <strong id="ocrDetectCount">0 张</strong>
+              <em>文字识别任务</em>
+            </div>
+            <div class="overview-card metric-orange">
+              <i>▥</i>
+              <span>生成报告</span>
+              <strong id="reportCount">0 份</strong>
+              <em>较昨日 ↑ 20%</em>
+            </div>
+          </div>
+          <div class="home-main-grid">
+            <div class="feature-panel">
+              <div class="overview-title">
+                <div>
+                  <h3>功能模块</h3>
+                  <p>选择模块，上传文件，开始检测，查看结果并导出报告</p>
+                </div>
+              </div>
+              <div class="feature-grid">
+                <button class="feature-card" type="button" data-go-module="image">
+                  <i>▧</i>
+                  <strong>图片质量检测</strong>
+                  <span>检测清晰度、曝光、对比度、噪声、压缩伪影等质量指标</span>
+                  <em>开始检测 →</em>
+                </button>
+                <button class="feature-card" type="button" data-go-module="enhance">
+                  <i>◈</i>
+                  <strong>图像增强</strong>
+                  <span>自动增强偏暗、模糊、低对比度等问题图像</span>
+                  <em>开始增强 →</em>
+                </button>
+                <button class="feature-card" type="button" data-go-module="ocr">
+                  <i>OCR</i>
+                  <strong>OCR文字识别</strong>
+                  <span>识别图片中的文字内容并输出置信度结果</span>
+                  <em>开始识别 →</em>
+                </button>
+                <button class="feature-card" type="button" data-go-module="video">
+                  <i>▶</i>
+                  <strong>视频码率分析</strong>
+                  <span>分析视频码率、帧率、分辨率、编码格式等参数</span>
+                  <em>开始分析 →</em>
+                </button>
+                <button class="feature-card" type="button" data-go-module="videoQuality">
+                  <i>▣</i>
+                  <strong>视频综合检测</strong>
+                  <span>抽帧分析视频画面质量、稳定性等综合指标</span>
+                  <em>开始检测 →</em>
+                </button>
+              </div>
+            </div>
+
+            <section class="panel history-panel home-history-panel">
+              <div class="panel-title">
+                <div>
+                  <h3>最近检测记录</h3>
+                  <p>展示最近完成的检测与报告路径</p>
+                </div>
+                <button class="secondary-button" type="button" data-go-module="history">查看全部</button>
+              </div>
+              <div class="table-wrap compact-history">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>文件名</th>
+                      <th>结果</th>
+                      <th>分数</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentHistoryRows">
+                    <tr><td colspan="3">暂无检测记录</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+          <div class="quality-summary">
+            <div><span>合格</span><strong id="okCount">0 张</strong></div>
+            <div><span>警告</span><strong id="warningCount">0 张</strong></div>
+            <div><span>不合格</span><strong id="ngCount">0 张</strong></div>
+            <div><span>总检测数量</span><strong id="totalDetectCount">0</strong></div>
+            <div class="visual-card">
+              <span>质量统计概览</span>
+              <div class="mini-bars" aria-hidden="true">
+                <i style="height: 38%"></i>
+                <i style="height: 58%"></i>
+                <i style="height: 46%"></i>
+                <i style="height: 72%"></i>
+                <i style="height: 88%"></i>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="imageModule" class="grid module-section module-workspace">
+        <div class="module-page-head">
+          <div>
+            <h2>图片质量检测</h2>
+            <p>检测清晰度、曝光、对比度、噪声、压缩伪影和白平衡，输出质量等级与处理建议。</p>
+          </div>
+          <div class="module-help-card">
+            <strong>检测说明</strong>
+            <span>支持 JPG、PNG、BMP 等格式，建议单张图片不超过 30MB。</span>
+          </div>
+        </div>
+        <form id="detectForm" class="panel form-panel">
+          <div class="panel-title">
+            <div>
+              <h3>质量检测</h3>
+              <p>配置输入、检测模式和评分权重</p>
+            </div>
+          </div>
+
+          <div class="area-title"><span>1</span><strong>文件导入</strong></div>
+          <label class="input-mode-field">
+            <span>输入模式</span>
+            <select class="input-mode-select" data-form="#detectForm">
+              <option value="file">选择图片文件</option>
+              <option value="folder">选择图片文件夹</option>
+              <option value="path">使用本地图片目录</option>
+            </select>
+          </label>
+          <div class="upload-box" data-input-mode="file">
+            <input id="images" name="images" type="file" accept=".jpg,.jpeg,.png,.bmp" multiple>
+            <label for="images">
+              <strong>拖入或选择图片</strong>
+              <span>选择图片后将优先检测上传批次；不上传则检测下方本地输入目录。</span>
+            </label>
+            <p id="fileHint">未选择文件</p>
+          </div>
+          <div class="folder-actions" data-input-mode="folder">
+            <input id="imagesFolder" class="folder-input" name="images" type="file" accept=".jpg,.jpeg,.png,.bmp" webkitdirectory directory multiple>
+            <label class="secondary-button folder-button" for="imagesFolder">浏览图片文件夹</label>
+          </div>
+
+          <div class="area-title"><span>2</span><strong>参数设置</strong></div>
+          <div class="field-grid">
+            <label data-input-mode="path">
+              <span>输入图片目录</span>
+              <input name="input_dir" value="{{ defaults.input_dir }}">
+            </label>
+            <label>
+              <span>OK输出目录</span>
+              <input name="ok_dir" value="{{ defaults.ok_dir }}">
+            </label>
+            <label>
+              <span>NG输出目录</span>
+              <input name="ng_dir" value="{{ defaults.ng_dir }}">
+            </label>
+            <label>
+              <span>报告保存目录</span>
+              <input name="report_dir" value="{{ defaults.report_dir }}">
+            </label>
+          </div>
+
+          <div class="option-grid">
+            <label>
+              <span>检测模式</span>
+              <select id="analysisMode" name="analysis_mode">
+                <option>整图检测</option>
+                <option>区域检测</option>
+              </select>
+            </label>
+            <label>
+              <span>区域类型</span>
+              <select id="regionMode" name="region_mode" disabled>
+                <option>九宫格全部</option>
+                <option>中心区域</option>
+                <option>四角区域</option>
+              </select>
+            </label>
+            <label>
+              <span>权重模式</span>
+              <select id="weightMode" name="weight_mode">
+                {% for mode in weight_modes %}
+                <option>{{ mode }}</option>
+                {% endfor %}
+                <option>自定义模式</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="weights">
+            <label><span>清晰度</span><input name="weight_clarity" value="0.40" disabled></label>
+            <label><span>曝光</span><input name="weight_exposure" value="0.20" disabled></label>
+            <label><span>对比度</span><input name="weight_contrast" value="0.20" disabled></label>
+            <label><span>噪声</span><input name="weight_noise" value="0.10" disabled></label>
+            <label><span>伪影</span><input name="weight_artifact" value="0.10" disabled></label>
+          </div>
+
+          <p class="method-note">
+            白平衡检测基于画面整体 RGB 通道差异进行估算，适用于普通自然光、室内光、商品图、测试样张等场景；对于夕阳、舞台灯光、强色彩场景可能存在误判。
+          </p>
+          <div class="area-title"><span>3</span><strong>操作按钮</strong></div>
+          <div class="action-strip">
+            <button class="primary-button" type="submit">开始检测</button>
+            <span>完成后可在右侧查看评分、问题原因并导出报告</span>
+          </div>
+        </form>
+
+        <section class="panel monitor-panel">
+          <div class="panel-title">
+            <div>
+              <h3>任务监控</h3>
+              <p>实时进度与日志</p>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <span id="messageText">等待开始</span>
+          </div>
+
+          <div class="area-title"><span>5</span><strong>报告导出</strong></div>
+          <div class="report-box">
+            <span>Excel 报告</span>
+            <strong id="reportPath">检测完成后可按需生成并下载</strong>
+            <div class="export-actions">
+              <button id="downloadReport" class="secondary-button" type="button" disabled>下载 Excel 报告</button>
+              <button id="downloadCsvReport" class="secondary-button" type="button" disabled>下载 CSV 报告</button>
+            </div>
+          </div>
+
+          <div class="output-box">
+            <div>
+              <span>标注图片输出</span>
+              <strong id="outputSummary">等待检测</strong>
+            </div>
+            <p id="outputDirs">OK/NG 输出目录会在检测完成后显示</p>
+          </div>
+
+          <div class="area-title"><span>4</span><strong>检测结果</strong></div>
+          <div class="result-box">
+            <div class="result-head">
+              <span>网页评分结果</span>
+              <strong id="resultCount">暂无结果</strong>
+            </div>
+            <div id="imageStandardSummary" class="standard-summary">
+              <div><span>检测分数</span><strong>--</strong></div>
+              <div><span>检测等级</span><strong>--</strong></div>
+              <div><span>问题原因</span><strong>等待检测</strong></div>
+              <div><span>处理建议</span><strong>等待检测</strong></div>
+              <div><span>报告文件</span><strong>等待生成</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>缩略图</th>
+                    <th>文件名</th>
+                    <th>综合</th>
+                    <th>等级</th>
+                    <th>清晰度</th>
+                    <th>曝光</th>
+                    <th>对比度</th>
+                    <th>噪声</th>
+                    <th>伪影</th>
+                    <th>色偏</th>
+                    <th>白平衡评分</th>
+                    <th>白平衡</th>
+                    <th>亮度判断</th>
+                    <th>标注图</th>
+                  </tr>
+                </thead>
+                <tbody id="resultRows">
+                  <tr><td colspan="14">检测完成后在这里查看评分</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <pre id="logs" class="logs">[ready] 等待检测任务...</pre>
+        </section>
+      </section>
+
+      <section id="ocrModule" class="grid module-section module-workspace">
+        <div class="module-page-head">
+          <div>
+            <h2>OCR文字识别</h2>
+            <p>识别图片或视频抽帧中的文字内容，输出置信度、NG 子代码、质量复核建议和报告。</p>
+          </div>
+          <div class="module-help-card">
+            <strong>检测说明</strong>
+            <span>支持图片批量、视频抽帧和 PaddleOCR 2.0 识别流程。</span>
+          </div>
+        </div>
+        <form id="ocrForm" class="panel form-panel">
+          <div class="panel-title">
+            <div>
+              <h3>OCR 2.0 识别</h3>
+              <p>图片文字识别、预处理、关键字检测和 NG 子代码报告</p>
+            </div>
+          </div>
+
+          <div class="area-title"><span>1</span><strong>文件导入</strong></div>
+          <label class="input-mode-field">
+            <span>输入模式</span>
+            <select class="input-mode-select" data-form="#ocrForm">
+              <option value="file">选择 OCR 文件</option>
+              <option value="folder">选择 OCR 文件夹</option>
+              <option value="path">使用本地输入路径</option>
+            </select>
+          </label>
+          <div class="upload-box" data-input-mode="file">
+            <input id="ocrFiles" name="ocr_files" type="file" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp,.mp4,.avi,.mov,.mkv,.wmv,.flv,.mpeg,.mpg" multiple>
+            <label for="ocrFiles">
+              <strong>拖入或选择 OCR 文件</strong>
+              <span>支持图片批量和视频文件；选择文件后优先识别上传批次。</span>
+            </label>
+            <p id="ocrFileHint">未选择文件</p>
+          </div>
+          <div class="folder-actions" data-input-mode="folder">
+            <input id="ocrFolder" class="folder-input" name="ocr_files" type="file" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp,.mp4,.avi,.mov,.mkv,.wmv,.flv,.mpeg,.mpg" webkitdirectory directory multiple>
+            <label class="secondary-button folder-button" for="ocrFolder">浏览 OCR 文件夹</label>
+          </div>
+
+          <div class="area-title"><span>2</span><strong>参数设置</strong></div>
+          <div class="field-grid">
+            <label data-input-mode="path">
+              <span>OCR 输入路径</span>
+              <input name="ocr_input_dir" value="D:\Codex\OCR测试">
+            </label>
+            <label>
+              <span>OCR 输出目录</span>
+              <input name="ocr_output_dir" value="D:\Codex\web_ocr_results">
+            </label>
+            <label>
+              <span>识别模式</span>
+              <select name="ocr_mode">
+                <option value="auto">自动判断</option>
+                <option value="single">单张图片</option>
+                <option value="batch">文件夹批量</option>
+                <option value="video">视频抽帧</option>
+              </select>
+            </label>
+            <label>
+              <span>OCR 语言</span>
+              <input name="ocr_lang" value="ch">
+            </label>
+          </div>
+
+          <div class="option-grid">
+            <label>
+              <span>最低均置信度</span>
+              <input name="ocr_min_confidence" value="0.8">
+            </label>
+            <label>
+              <span>最大乱码比例</span>
+              <input name="ocr_max_garbled" value="0.2">
+            </label>
+            <label>
+              <span>抽帧间隔</span>
+              <input name="ocr_frame_interval" value="30">
+            </label>
+          </div>
+
+          <div class="option-grid">
+            <label>
+              <span>单块最低置信度</span>
+              <input name="ocr_min_char_confidence" value="0.5">
+            </label>
+            <label>
+              <span>低置信度最大占比</span>
+              <input name="ocr_max_low_conf_ratio" value="0.3">
+            </label>
+            <label>
+              <span>最少文字块</span>
+              <input name="ocr_min_ocr_count" value="1">
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              <span>文字区域最小面积</span>
+              <input name="ocr_min_text_area" value="0">
+            </label>
+            <label>
+              <span>关键字，逗号分隔</span>
+              <input name="ocr_keywords" placeholder="生产日期,规格,品牌">
+            </label>
+            <label>
+              <span>质量复核阈值</span>
+              <input name="ocr_quality_review_threshold" value="70">
+            </label>
+            <label class="check-row inline-check">
+              <input name="ocr_quality_gate" type="hidden" value="off">
+              <input name="ocr_quality_gate" type="checkbox" value="on" checked>
+              <span>OCR 前先检测图片质量</span>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              <span>预处理步骤</span>
+              <input name="ocr_preprocess" placeholder="clahe,denoise,sharpen,scale">
+            </label>
+            <label>
+              <span>去噪方式</span>
+              <select name="ocr_denoise_method">
+                <option value="gaussian">gaussian</option>
+                <option value="median">median</option>
+                <option value="bilateral">bilateral</option>
+              </select>
+            </label>
+            <label>
+              <span>CLAHE clip</span>
+              <input name="ocr_clahe_clip" value="2.0">
+            </label>
+            <label>
+              <span>去噪核大小</span>
+              <input name="ocr_denoise_ksize" value="5">
+            </label>
+            <label>
+              <span>锐化强度</span>
+              <input name="ocr_sharpen_strength" value="1.0">
+            </label>
+            <label>
+              <span>放大倍数</span>
+              <input name="ocr_scale_factor" value="2.0">
+            </label>
+            <label>
+              <span>Gamma</span>
+              <input name="ocr_gamma" value="1.2">
+            </label>
+            <label class="check-row inline-check">
+              <input name="ocr_use_gpu" type="checkbox">
+              <span>使用 GPU</span>
+            </label>
+          </div>
+
+          <p class="method-note">
+            预处理步骤可按顺序组合：clahe、denoise、sharpen、scale、rotate、gray、gamma。留空则直接识别原图。
+          </p>
+          <div class="area-title"><span>3</span><strong>操作按钮</strong></div>
+          <div class="action-strip">
+            <button class="primary-button" type="submit">开始 OCR</button>
+            <span>完成后可查看识别文本、置信度并导出报告</span>
+          </div>
+        </form>
+
+        <section class="panel monitor-panel">
+          <div class="panel-title">
+            <div>
+              <h3>OCR 任务监控</h3>
+              <p>查看识别进度、NG 子代码和报告路径</p>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="ocrProgressBar" class="progress-bar"></div>
+            </div>
+            <span id="ocrMessageText">等待开始</span>
+          </div>
+
+          <div class="area-title"><span>5</span><strong>报告导出</strong></div>
+          <div class="report-box">
+            <span>OCR 2.0 Excel 报告</span>
+            <strong id="ocrReportPath">识别完成后可下载多 Sheet 报告</strong>
+            <div class="export-actions">
+              <button id="downloadOcrReport" class="secondary-button" type="button" disabled>下载 OCR 报告</button>
+              <button id="downloadOcrCsvReport" class="secondary-button" type="button" disabled>下载 CSV 报告</button>
+            </div>
+          </div>
+
+          <div class="output-box">
+            <div>
+              <span>OCR 输出</span>
+              <strong id="ocrOutputSummary">等待识别</strong>
+            </div>
+            <p id="ocrOutputDirs">文本、标注图、NG 图和报告目录会在完成后显示</p>
+          </div>
+
+          <div class="area-title"><span>4</span><strong>检测结果</strong></div>
+          <div class="result-box">
+            <div class="result-head">
+              <span>OCR 识别结果</span>
+              <strong id="ocrResultCount">暂无结果</strong>
+            </div>
+            <div id="ocrStandardSummary" class="standard-summary">
+              <div><span>检测分数</span><strong>--</strong></div>
+              <div><span>检测等级</span><strong>--</strong></div>
+              <div><span>问题原因</span><strong>等待识别</strong></div>
+              <div><span>处理建议</span><strong>等待识别</strong></div>
+              <div><span>报告文件</span><strong>等待生成</strong></div>
+            </div>
+            <div class="preview-grid">
+              <div class="preview-card">
+                <span>图片预览</span>
+                <img id="ocrPreviewImage" alt="OCR 图片预览">
+                <strong id="ocrPreviewEmpty">选择图片后显示预览</strong>
+              </div>
+              <div class="preview-card text-preview">
+                <span>识别文本</span>
+                <p id="ocrTextPreview">OCR 完成后显示识别文本和置信度摘要</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>缩略图</th>
+                    <th>文件名</th>
+                    <th>质量评分</th>
+                    <th>质量等级</th>
+                    <th>复核建议</th>
+                    <th>状态</th>
+                    <th>NG 子代码</th>
+                    <th>文字块</th>
+                    <th>均置信度</th>
+                    <th>最低置信度</th>
+                    <th>低置信占比</th>
+                    <th>关键字命中率</th>
+                    <th>识别文本</th>
+                    <th>原因</th>
+                  </tr>
+                </thead>
+                <tbody id="ocrResultRows">
+                  <tr><td colspan="14">OCR 完成后在这里查看识别结果</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <pre id="ocrLogs" class="logs">[ready] 等待 OCR 2.0 任务...</pre>
+        </section>
+      </section>
+
+      <section id="videoModule" class="module-section video-mock-page">
+        <div class="video-mock-shell video-real-shell">
+          <div class="video-mock-main">
+            <div class="video-page-head">
+              <div>
+                <h2>视频码率分析 <span class="play-dot">▶</span></h2>
+                <p>分析视频文件的码率、帧率、分辨率、帧数和白平衡信息，按当前规则判断是否达标。</p>
+              </div>
+              <div class="video-help-card">
+                <strong>检测说明</strong>
+                <span>支持 MP4、MOV、AVI、MKV 等格式；选择文件后优先检测上传批次，不上传则检测本地输入目录。</span>
+                <i>›</i>
+              </div>
+            </div>
+
+            <form id="videoForm" class="video-work-grid video-real-form">
+              <section class="video-card upload-video-card">
+                <h3><b>1</b>上传视频</h3>
+                <label class="input-mode-field">
+                  <span>输入模式</span>
+                  <select class="input-mode-select" data-form="#videoForm">
+                    <option value="file">选择视频文件</option>
+                    <option value="folder">选择视频文件夹</option>
+                    <option value="path">使用本地视频目录</option>
+                  </select>
+                </label>
+                <div class="video-dropzone" data-input-mode="file">
+                  <input id="videos" name="videos" type="file" accept=".mp4,.avi,.mov,.mkv,.flv,.wmv,.webm,.m4v,.mpg,.mpeg" multiple>
+                  <div class="upload-cloud">↑</div>
+                  <strong>拖拽视频文件到此处，或点击选择文件</strong>
+                  <span>支持 MP4 / MOV / AVI / MKV 等格式</span>
+                  <div class="video-upload-actions">
+                    <label class="mock-btn primary" for="videos">选择视频文件</label>
+                  </div>
+                </div>
+                <div class="folder-actions video-folder-actions" data-input-mode="folder">
+                  <input id="videosFolder" class="folder-input" name="videos" type="file" accept=".mp4,.avi,.mov,.mkv,.flv,.wmv,.webm,.m4v,.mpg,.mpeg" webkitdirectory directory multiple>
+                  <label class="mock-btn secondary" for="videosFolder">浏览视频文件夹</label>
+                </div>
+                <div class="selected-title"><span id="videoFileHint">未选择文件</span></div>
+              </section>
+
+              <section class="video-card video-param-card">
+                <h3><b>2</b>检测参数</h3>
+                <div class="mock-field-grid video-real-fields">
+                  <label data-input-mode="path"><span>视频输入目录</span><input class="mock-input real-input" name="video_input_dir" value="{{ video_defaults.input_dir }}"></label>
+                  <label><span>视频报告目录</span><input class="mock-input real-input" name="video_report_dir" value="{{ video_defaults.report_dir }}"></label>
+                  <label><span>ffprobe 路径</span><input class="mock-input real-input" name="ffprobe_path" value="{{ video_defaults.ffprobe_path }}"></label>
+                  <label><span>视频模式</span><select class="mock-input real-input" name="video_mode">
+                    {% for key, name in video_modes.items() %}
+                    <option value="{{ key }}">{{ name }}</option>
+                    {% endfor %}
+                  </select></label>
+                </div>
+                <label class="check-row video-real-check">
+                  <input name="include_frames" type="checkbox">
+                  <span>提取逐帧包大小数据（大视频会更慢）</span>
+                </label>
+                <p class="method-note video-real-note">白平衡检测通过抽帧估算 RGB 通道差异；强色彩场景建议结合实际内容复核。</p>
+              </section>
+
+              <section class="video-card video-action-card">
+                <h3><b>3</b>开始检测</h3>
+                <button class="primary-button" type="submit">开始检测</button>
+                <span>完成后可查看结果，并按需下载 Excel 或 CSV 报告。</span>
+              </section>
+            </form>
+
+            <section class="video-detail-grid video-real-results">
+              <div class="video-card video-table-card">
+                <h3><b>4</b>检测结果 <strong id="videoResultCount">暂无结果</strong></h3>
+                <div id="videoStandardSummary" class="standard-summary video-real-summary">
+                  <div><span>检测分数</span><strong>--</strong></div>
+                  <div><span>检测等级</span><strong>--</strong></div>
+                  <div><span>问题原因</span><strong>等待检测</strong></div>
+                  <div><span>处理建议</span><strong>等待检测</strong></div>
+                  <div><span>报告文件</span><strong>等待生成</strong></div>
+                </div>
+                <div class="mock-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>缩略图</th>
+                        <th>文件名</th>
+                        <th>分辨率</th>
+                        <th>视频码率</th>
+                        <th>音频码率</th>
+                        <th>帧率</th>
+                        <th>帧数</th>
+                        <th>阈值</th>
+                        <th>判断</th>
+                        <th>白平衡评分</th>
+                        <th>白平衡判断</th>
+                        <th>异常帧占比</th>
+                      </tr>
+                    </thead>
+                    <tbody id="videoResultRows">
+                      <tr><td colspan="12">检测完成后在这里查看视频结果</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="video-card video-log-card">
+                <h3>任务日志</h3>
+                <pre id="videoLogs" class="logs">[ready] 等待视频检测任务...</pre>
+              </div>
+            </section>
+          </div>
+
+          <aside class="video-side">
+            <section class="video-card task-card">
+              <div class="side-title"><h3>任务进度</h3><span>等待中</span></div>
+              <div class="side-progress"><i id="videoProgressBar"></i></div>
+              <p id="videoMessageText" class="video-status-text">等待开始</p>
+            </section>
+            <section class="video-card report-card">
+              <h3>报告导出</h3>
+              <p id="videoReportPath">检测完成后可按需生成并下载</p>
+              <button id="downloadVideoReport" type="button" disabled><i class="excel">XLS</i>下载 Excel 报告</button>
+              <button id="downloadVideoCsvReport" type="button" disabled><i class="csv">CSV</i>下载 CSV 报告</button>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section id="videoQualityModule" class="grid module-section module-workspace">
+        <div class="module-page-head">
+          <div>
+            <h2>视频综合检测</h2>
+            <p>抽帧分析视频清晰度、曝光、稳定性、掉帧、黑白屏、冻结和音频等综合指标。</p>
+          </div>
+          <div class="module-help-card">
+            <strong>检测说明</strong>
+            <span>综合评分会生成异常截图和多 Sheet Excel 报告，大视频耗时更长。</span>
+          </div>
+        </div>
+        <form id="videoQualityForm" class="panel form-panel">
+          <div class="panel-title">
+            <div>
+              <h3>视频综合质量评分</h3>
+              <p>100分制检测码率、清晰度、曝光、稳定性、掉帧、黑白屏、冻结和音频</p>
+            </div>
+          </div>
+
+          <div class="area-title"><span>1</span><strong>文件导入</strong></div>
+          <label class="input-mode-field">
+            <span>输入模式</span>
+            <select class="input-mode-select" data-form="#videoQualityForm">
+              <option value="file">选择视频文件</option>
+              <option value="folder">选择视频文件夹</option>
+              <option value="path">使用本地视频目录</option>
+            </select>
+          </label>
+          <div class="upload-box" data-input-mode="file">
+            <input id="qualityVideos" name="quality_videos" type="file" accept=".mp4,.avi,.mov,.mkv,.flv,.wmv,.webm,.m4v,.mpg,.mpeg" multiple>
+            <label for="qualityVideos">
+              <strong>拖入或选择视频</strong>
+              <span>将生成异常截图、预览图和多 Sheet 综合评分 Excel。</span>
+            </label>
+            <p id="qualityVideoFileHint">未选择文件</p>
+          </div>
+          <div class="folder-actions" data-input-mode="folder">
+            <input id="qualityVideosFolder" class="folder-input" name="quality_videos" type="file" accept=".mp4,.avi,.mov,.mkv,.flv,.wmv,.webm,.m4v,.mpg,.mpeg" webkitdirectory directory multiple>
+            <label class="secondary-button folder-button" for="qualityVideosFolder">浏览视频文件夹</label>
+          </div>
+
+          <div class="area-title"><span>2</span><strong>参数设置</strong></div>
+          <div class="field-grid">
+            <label data-input-mode="path">
+              <span>视频输入目录</span>
+              <input name="quality_video_input_dir" value="{{ video_defaults.input_dir }}">
+            </label>
+            <label>
+              <span>综合报告目录</span>
+              <input name="quality_video_report_dir" value="{{ video_defaults.quality_report_dir }}">
+            </label>
+            <label>
+              <span>ffprobe 路径</span>
+              <input name="quality_ffprobe_path" value="{{ video_defaults.ffprobe_path }}">
+            </label>
+            <label>
+              <span>评分模式</span>
+              <select name="quality_video_mode">
+                {% for key, name in video_modes.items() %}
+                <option value="{{ key }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+
+          <p class="method-note">
+            综合评分会进行抽帧分析并保存异常截图。大视频耗时会更长，检测过程中 CodexPet 会显示预计剩余时间。
+          </p>
+          <div class="area-title"><span>3</span><strong>操作按钮</strong></div>
+          <div class="action-strip">
+            <button class="primary-button" type="submit">开始综合评分</button>
+            <span>完成后可查看综合评分、异常项和报告路径</span>
+          </div>
+        </form>
+
+        <section class="panel monitor-panel">
+          <div class="panel-title">
+            <div>
+              <h3>综合任务监控</h3>
+              <p>检测完成后可直接查看总分，并按需下载综合 Excel</p>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="qualityProgressBar" class="progress-bar"></div>
+            </div>
+            <span id="qualityMessageText">等待开始</span>
+          </div>
+
+          <div class="area-title"><span>5</span><strong>报告导出</strong></div>
+          <div class="report-box">
+            <span>视频综合 Excel 报告</span>
+            <strong id="qualityReportPath">检测完成后可按需生成并下载</strong>
+            <div class="export-actions">
+              <button id="downloadQualityReport" class="secondary-button" type="button" disabled>下载综合报告</button>
+              <button id="downloadQualityCsvReport" class="secondary-button" type="button" disabled>下载 CSV 报告</button>
+            </div>
+          </div>
+
+          <div class="area-title"><span>4</span><strong>检测结果</strong></div>
+          <div class="result-box">
+            <div class="result-head">
+              <span>视频综合评分结果</span>
+              <strong id="qualityResultCount">暂无结果</strong>
+            </div>
+            <div id="qualityStandardSummary" class="standard-summary">
+              <div><span>检测分数</span><strong>--</strong></div>
+              <div><span>检测等级</span><strong>--</strong></div>
+              <div><span>问题原因</span><strong>等待检测</strong></div>
+              <div><span>处理建议</span><strong>等待检测</strong></div>
+              <div><span>报告文件</span><strong>等待生成</strong></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>缩略图</th>
+                    <th>文件名</th>
+                    <th>分辨率</th>
+                    <th>综合评分</th>
+                    <th>等级</th>
+                    <th>码率</th>
+                    <th>清晰度</th>
+                    <th>曝光</th>
+                    <th>稳定性</th>
+                    <th>掉帧</th>
+                    <th>黑白屏</th>
+                    <th>冻结</th>
+                    <th>音频</th>
+                  </tr>
+                </thead>
+                <tbody id="qualityResultRows">
+                  <tr><td colspan="13">检测完成后在这里查看综合评分</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <pre id="qualityLogs" class="logs">[ready] 等待视频综合评分任务...</pre>
+        </section>
+      </section>
+
+      <section id="enhanceModule" class="grid module-section module-workspace">
+        <div class="module-page-head">
+          <div>
+            <h2>图像增强</h2>
+            <p>先检测图片质量问题，再按规则自动选择增强策略，生成增强前后对比图和评分报告。</p>
+          </div>
+          <div class="module-help-card">
+            <strong>检测说明</strong>
+            <span>支持手动、固定自动和规则智能增强；OCR 二值化仅在 OCR 模式启用。</span>
+          </div>
+        </div>
+        <form id="enhanceForm" class="panel form-panel">
+          <div class="panel-title">
+            <div>
+              <h3>图像增强模块</h3>
+              <p>先检测质量问题，再按规则选择增强策略并输出前后对比报告</p>
+            </div>
+          </div>
+
+          <div class="area-title"><span>1</span><strong>文件导入</strong></div>
+          <label class="input-mode-field">
+            <span>输入模式</span>
+            <select class="input-mode-select" data-form="#enhanceForm">
+              <option value="file">选择图片文件</option>
+              <option value="folder">选择图片文件夹</option>
+              <option value="path">使用本地图片目录</option>
+            </select>
+          </label>
+          <div class="upload-box" data-input-mode="file">
+            <input id="enhanceImages" name="enhance_images" type="file" accept=".jpg,.jpeg,.png,.bmp" multiple>
+            <label for="enhanceImages">
+              <strong>拖入或选择待增强图片</strong>
+              <span>选择图片后优先处理上传批次；不上传则处理下方本地输入目录。</span>
+            </label>
+            <p id="enhanceFileHint">未选择文件</p>
+          </div>
+          <div class="folder-actions" data-input-mode="folder">
+            <input id="enhanceImagesFolder" class="folder-input" name="enhance_images" type="file" accept=".jpg,.jpeg,.png,.bmp" webkitdirectory directory multiple>
+            <label class="secondary-button folder-button" for="enhanceImagesFolder">浏览图片文件夹</label>
+          </div>
+
+          <div class="area-title"><span>2</span><strong>参数设置</strong></div>
+          <div class="field-grid">
+            <label data-input-mode="path">
+              <span>增强输入目录</span>
+              <input name="enhance_input_dir" value="{{ defaults.input_dir }}">
+            </label>
+            <label>
+              <span>增强输出目录</span>
+              <input name="enhance_output_dir" value="D:\Codex\web_enhance_results">
+            </label>
+            <label>
+              <span>增强模式</span>
+              <select id="enhanceMode" name="enhance_mode">
+                <option value="rule">规则版智能自动增强</option>
+                <option value="fixed">固定自动增强</option>
+                <option value="manual">手动增强</option>
+              </select>
+            </label>
+            <label>
+              <span>增强强度</span>
+              <select name="enhance_strength">
+                <option value="light">轻度</option>
+                <option value="standard" selected>标准</option>
+                <option value="strong">明显</option>
+              </select>
+            </label>
+            <label class="check-row inline-check">
+              <input name="enhance_ocr_mode" type="checkbox">
+              <span>启用 OCR 二值化预处理</span>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <div class="enhance-step-field">
+              <span>手动增强步骤</span>
+              <input id="enhanceStepsValue" name="enhance_steps" type="hidden" value="gamma,clahe,sharpen">
+              <div class="enhance-step-options" aria-label="手动增强步骤">
+                <label><input class="enhance-step-option" type="checkbox" value="gamma" checked><span>Gamma增亮</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="clahe" checked><span>CLAHE对比度</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="sharpen" checked><span>轻度锐化</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="denoise"><span>去噪</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="darken"><span>降低亮度</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="highlight"><span>高光压制</span></label>
+                <label><input class="enhance-step-option" type="checkbox" value="ocr"><span>OCR二值化</span></label>
+              </div>
+            </div>
+            <label>
+              <span>Gamma</span>
+              <input name="enhance_gamma" value="0.85">
+            </label>
+            <label>
+              <span>CLAHE clipLimit</span>
+              <input name="enhance_clahe_clip" value="1.8">
+            </label>
+            <label>
+              <span>去噪强度 h</span>
+              <input name="enhance_denoise_h" value="6.0">
+            </label>
+            <label>
+              <span>锐化强度 amount</span>
+              <input name="enhance_sharpen_amount" value="0.25">
+            </label>
+            <label>
+              <span>降亮 beta</span>
+              <input name="enhance_darken_beta" value="-10">
+            </label>
+          </div>
+
+          <p class="method-note">
+            规则版智能自动增强会按顺序执行：去噪、曝光/亮度调整、对比度增强、轻度锐化；OCR 二值化只在勾选 OCR 模式时执行。
+          </p>
+          <div class="area-title"><span>3</span><strong>操作按钮</strong></div>
+          <div class="action-strip">
+            <button class="primary-button" type="submit">开始增强</button>
+            <span>完成后可查看增强前后分数、对比图和增强报告</span>
+          </div>
+        </form>
+
+        <section class="panel monitor-panel">
+          <div class="panel-title">
+            <div>
+              <h3>增强任务监控</h3>
+              <p>查看增强进度、前后评分变化和报告路径</p>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-track">
+              <div id="enhanceProgressBar" class="progress-bar"></div>
+            </div>
+            <span id="enhanceMessageText">等待开始</span>
+          </div>
+
+          <div class="area-title"><span>5</span><strong>报告导出</strong></div>
+          <div class="report-box">
+            <span>图像增强 Excel 报告</span>
+            <strong id="enhanceReportPath">增强完成后可下载前后对比报告</strong>
+            <div class="export-actions">
+              <button id="downloadEnhanceReport" class="secondary-button" type="button" disabled>下载增强报告</button>
+              <button id="downloadEnhanceCsvReport" class="secondary-button" type="button" disabled>下载 CSV 报告</button>
+            </div>
+          </div>
+
+          <div class="output-box">
+            <div>
+              <span>增强输出</span>
+              <strong id="enhanceOutputSummary">等待增强</strong>
+            </div>
+            <p id="enhanceOutputDirs">增强图、对比图、报告和日志目录会在完成后显示</p>
+          </div>
+
+          <div class="area-title"><span>4</span><strong>检测结果</strong></div>
+          <div class="result-box">
+            <div class="result-head">
+              <span>增强前后对比结果</span>
+              <strong id="enhanceResultCount">暂无结果</strong>
+            </div>
+            <div id="enhanceStandardSummary" class="standard-summary">
+              <div><span>检测分数</span><strong>--</strong></div>
+              <div><span>检测等级</span><strong>--</strong></div>
+              <div><span>问题原因</span><strong>等待增强</strong></div>
+              <div><span>处理建议</span><strong>等待增强</strong></div>
+              <div><span>报告文件</span><strong>等待生成</strong></div>
+            </div>
+            <div class="preview-card compare-preview">
+              <span>增强前后对比图</span>
+              <img id="enhanceComparePreview" alt="增强前后对比图">
+              <strong id="enhanceCompareEmpty">增强完成后显示对比图</strong>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>缩略图</th>
+                    <th>文件名</th>
+                    <th>原分</th>
+                    <th>增强后</th>
+                    <th>变化</th>
+                    <th>效果判断</th>
+                    <th>执行方法</th>
+                    <th>处理建议</th>
+                  </tr>
+                </thead>
+                <tbody id="enhanceResultRows">
+                  <tr><td colspan="8">增强完成后在这里查看前后对比结果</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <pre id="enhanceLogs" class="logs">[ready] 等待图像增强任务...</pre>
+        </section>
+      </section>
+
+      <section id="historyModule" class="module-section">
+        <section class="panel history-panel">
+          <div class="panel-title">
+            <div>
+              <h3>检测历史</h3>
+              <p>查看检测时间、模块、文件名、结果、综合分和报告路径</p>
+            </div>
+            <button id="clearHistoryButton" class="secondary-button" type="button">清空历史</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>检测时间</th>
+                  <th>模块</th>
+                  <th>文件名</th>
+                  <th>结果</th>
+                  <th>综合分</th>
+                  <th>报告路径</th>
+                </tr>
+              </thead>
+              <tbody id="historyRows">
+                <tr><td colspan="6">暂无检测历史</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="settingsModule" class="module-section">
+        <section class="panel settings-panel">
+          <div class="panel-title">
+            <div>
+              <h3>参数设置</h3>
+              <p>保存常用检测阈值、权重、增强参数和 OCR 参数到本机浏览器</p>
+            </div>
+            <button id="saveSettingsButton" class="primary-button" type="button">保存参数</button>
+          </div>
+          <div class="settings-grid">
+            <div class="setting-card">
+              <h4>质量检测权重</h4>
+              <label><span>清晰度权重</span><input id="settingWeightClarity" value="0.40"></label>
+              <label><span>曝光权重</span><input id="settingWeightExposure" value="0.20"></label>
+              <label><span>对比度权重</span><input id="settingWeightContrast" value="0.20"></label>
+              <label><span>噪声权重</span><input id="settingWeightNoise" value="0.10"></label>
+              <label><span>压缩伪影权重</span><input id="settingWeightArtifact" value="0.10"></label>
+            </div>
+            <div class="setting-card">
+              <h4>检测阈值</h4>
+              <label><span>合格分数</span><input id="settingPassScore" value="70"></label>
+              <label><span>警告分数</span><input id="settingWarningScore" value="50"></label>
+              <label><span>OCR 质量复核阈值</span><input id="settingOcrQualityThreshold" value="70"></label>
+            </div>
+            <div class="setting-card">
+              <h4>增强参数</h4>
+              <label><span>Gamma</span><input id="settingEnhanceGamma" value="0.85"></label>
+              <label><span>CLAHE clipLimit</span><input id="settingEnhanceClahe" value="1.8"></label>
+              <label><span>去噪强度 h</span><input id="settingEnhanceDenoise" value="6.0"></label>
+              <label><span>锐化强度 amount</span><input id="settingEnhanceSharpen" value="0.25"></label>
+            </div>
+            <div class="setting-card">
+              <h4>OCR 参数</h4>
+              <label><span>最低均置信度</span><input id="settingOcrMinConfidence" value="0.8"></label>
+              <label><span>最大乱码比例</span><input id="settingOcrMaxGarbled" value="0.2"></label>
+              <label><span>抽帧间隔</span><input id="settingOcrFrameInterval" value="30"></label>
+              <label><span>语言</span><input id="settingOcrLang" value="ch"></label>
+            </div>
+          </div>
+          <p id="settingsStatus" class="settings-status">参数会保存到当前浏览器，用于自动填充模块页面。</p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.WEIGHT_MODES = {{ weight_modes|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=drag-20260608-1"></script>
+</body>
+</html>
