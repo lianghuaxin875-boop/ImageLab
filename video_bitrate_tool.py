@@ -9,6 +9,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +23,11 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 
-DEFAULT_FFPROBE_PATH = r"D:\码率工具FFepeg\ffmpeg-8.1.1-full_build\bin\ffprobe.exe"
+DEFAULT_FFPROBE_PATH = (
+    os.environ.get("FFPROBE_PATH")
+    or shutil.which("ffprobe")
+    or r"D:\码率工具FFepeg\ffmpeg-8.1.1-full_build\bin\ffprobe.exe"
+)
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg"}
 
 STANDARDS_CONFIG = {

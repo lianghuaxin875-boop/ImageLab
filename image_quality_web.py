@@ -1275,4 +1275,8 @@ def clear_uploads():
 if __name__ == "__main__":
     for directory in (DEFAULT_INPUT_DIR, DEFAULT_OK_DIR, DEFAULT_NG_DIR, DEFAULT_REPORT_DIR, DEFAULT_VIDEO_INPUT_DIR, DEFAULT_VIDEO_REPORT_DIR, DEFAULT_VIDEO_QUALITY_REPORT_DIR, UPLOAD_DIR, VIDEO_UPLOAD_DIR, OCR_UPLOAD_DIR, OCR_OUTPUT_DIR, ENHANCE_UPLOAD_DIR, ENHANCE_OUTPUT_DIR):
         directory.mkdir(parents=True, exist_ok=True)
-    app.run(host="127.0.0.1", port=int(os.environ.get("WEB_PORT", "5000")), debug=True, use_reloader=False)
+    # 托管平台通常通过 PORT 注入监听端口；本地运行仍默认使用 5000。
+    port = int(os.environ.get("PORT") or os.environ.get("WEB_PORT", "5000"))
+    host = os.environ.get("WEB_HOST", "0.0.0.0")
+    debug = os.environ.get("WEB_DEBUG", "0").lower() in {"1", "true", "yes"}
+    app.run(host=host, port=port, debug=debug, use_reloader=False)

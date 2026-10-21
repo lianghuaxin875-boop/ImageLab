@@ -10,6 +10,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -99,7 +100,11 @@ class VideoQualityScoringDetector:
         self.report_dir = Path(report_dir)
         self.mode = int(mode)
         self.ffprobe_path = ffprobe_path
-        self.ffmpeg_path = str(Path(ffprobe_path).with_name("ffmpeg.exe"))
+        self.ffmpeg_path = (
+            os.environ.get("FFMPEG_PATH")
+            or shutil.which("ffmpeg")
+            or str(Path(ffprobe_path).with_name("ffmpeg.exe"))
+        )
         self.log = log_callback or (lambda message: None)
         self.progress = progress_callback or (lambda done, total: None)
 

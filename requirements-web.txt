@@ -1,0 +1,8 @@
+# 公网部署的核心依赖。OCR 依赖单独放在 requirements-ocr.txt，避免普通部署下载数百 MB 的 Paddle 运行时。
+opencv-contrib-python-headless==4.10.0.84
+numpy
+pandas
+openpyxl
+pillow
+flask
+gunicorn

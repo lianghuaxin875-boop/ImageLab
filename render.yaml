@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: imagelab
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: WEB_HOST
+        value: 0.0.0.0

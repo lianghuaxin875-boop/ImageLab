@@ -14,8 +14,25 @@ import queue
 import threading
 from datetime import datetime
 from pathlib import Path
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+
+try:
+    import tkinter as tk
+    from tkinter import filedialog, messagebox, ttk
+except ImportError:  # Web/容器环境可能没有 Tk；检测核心仍可独立运行。
+    class _TkUnavailable:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("当前运行环境没有 Tkinter，网页模式不需要桌面 GUI 依赖")
+
+    class _TkModule:
+        Tk = _TkUnavailable
+
+    class _TkWidgetsUnavailable:
+        def __getattr__(self, name):
+            raise RuntimeError("当前运行环境没有 Tkinter，网页模式不需要桌面 GUI 依赖")
+
+    tk = _TkModule()
+    ttk = _TkWidgetsUnavailable()
+    filedialog = messagebox = _TkWidgetsUnavailable()
 
 import cv2
 import numpy as np
