@@ -35,6 +35,8 @@ http://127.0.0.1:5001/
 
 仓库已经包含 `Dockerfile` 和 `render.yaml`，可以直接连接 Render、Railway 等支持 Docker 的平台部署。部署平台会把 `PORT` 注入容器，程序监听 `0.0.0.0`，生成的地址可以从公网打开。
 
+[![Deploy to Render](https://render.com/images/deploy-to-render/button.svg)](https://render.com/deploy?repo=https://github.com/lianghuaxin875-boop/ImageLab)
+
 公网部署默认安装图片、视频和增强功能的核心依赖。OCR 的 Paddle 依赖体积较大，按需执行：
 
 ```bash
