@@ -241,16 +241,31 @@ def artifact_desc_sug(artifact_score):
 
 
 def calc_clarity_metrics(gray):
-    lap = cv2.Laplacian(gray, cv2.CV_64F).var()
-    gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-    gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-    ten = np.sqrt(gx**2 + gy**2).mean()
-    return lap, ten
+    height = gray.shape[0]
+    lap_sum = lap_square_sum = ten_sum = 0.0
+    for start in range(0, height, 256):
+        end = min(start + 256, height)
+        source_start = max(0, start - 1)
+        block = gray[source_start:min(end + 1, height)]
+        rows = slice(start - source_start, end - source_start)
+        lap = cv2.Laplacian(block, cv2.CV_64F)[rows]
+        lap_sum += float(lap.sum())
+        np.square(lap, out=lap)
+        lap_square_sum += float(lap.sum())
+        del lap
+        gx = cv2.Sobel(block, cv2.CV_64F, 1, 0, ksize=3)[rows]
+        gy = cv2.Sobel(block, cv2.CV_64F, 0, 1, ksize=3)[rows]
+        np.square(gx, out=gx)
+        np.square(gy, out=gy)
+        np.add(gx, gy, out=gx)
+        np.sqrt(gx, out=gx)
+        ten_sum += float(gx.sum())
+    return np.float64(max(0.0, lap_square_sum / gray.size - (lap_sum / gray.size) ** 2)), np.float64(ten_sum / gray.size)
 
 
 def calc_noise(gray, ksize=5):
     blur = cv2.GaussianBlur(gray, (ksize, ksize), 0)
-    return np.std(gray.astype(np.float32) - blur.astype(np.float32))
+    return np.std(np.subtract(gray, blur, dtype=np.float32))
 
 
 def calc_artifact(gray, width, height):
@@ -410,11 +425,6 @@ def calc_luminance_histogram(gray):
 
 
 def annotate_image(image, score, status, metrics):
-    annotated_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    pil_img = PILImage.fromarray(annotated_rgb).convert("RGBA")
-    overlay = PILImage.new("RGBA", pil_img.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
     font = _load_chinese_font(22)
     title_font = _load_chinese_font(24)
     padding = 14
@@ -430,18 +440,25 @@ def annotate_image(image, score, status, metrics):
         ("问题", metrics["问题"]),
     ]
     text_lines = [f"{key}：{value}" for key, value in lines]
+    draw = ImageDraw.Draw(PILImage.new("RGBA", (1, 1)))
     text_width = max(draw.textbbox((0, 0), text, font=title_font if idx < 2 else font)[2] for idx, text in enumerate(text_lines))
-    panel_width = min(max(text_width + padding * 2, 260), pil_img.width - 20)
+    panel_width = min(max(text_width + padding * 2, 260), image.shape[1] - 20)
     panel_height = padding * 2 + line_height * len(text_lines)
     panel_x, panel_y = 10, 10
+    text_bottom = max(draw.textbbox((panel_x + padding, panel_y + padding + idx * line_height), text, font=title_font if idx < 2 else font)[3] for idx, text in enumerate(text_lines))
+    stripe_height = min(image.shape[0], max(panel_y + panel_height + 1, text_bottom + 1))
+    pil_img = PILImage.fromarray(cv2.cvtColor(image[:stripe_height], cv2.COLOR_BGR2RGB)).convert("RGBA")
+    overlay = PILImage.new("RGBA", pil_img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
 
-    draw.rounded_rectangle(
-        (panel_x, panel_y, panel_x + panel_width, panel_y + panel_height),
-        radius=12,
-        fill=(8, 18, 34, 215),
-        outline=(56, 189, 248, 235),
-        width=2,
-    )
+    if panel_width >= 0:
+        draw.rounded_rectangle(
+            (panel_x, panel_y, panel_x + panel_width, panel_y + panel_height),
+            radius=12,
+            fill=(8, 18, 34, 215),
+            outline=(56, 189, 248, 235),
+            width=2,
+        )
 
     level_color = {
         "EXCELLENT": (134, 239, 172, 255),
@@ -459,7 +476,9 @@ def annotate_image(image, score, status, metrics):
         y += line_height
 
     combined = PILImage.alpha_composite(pil_img, overlay).convert("RGB")
-    return cv2.cvtColor(np.array(combined), cv2.COLOR_RGB2BGR)
+    annotated = image.copy()
+    annotated[:stripe_height] = cv2.cvtColor(np.array(combined), cv2.COLOR_RGB2BGR)
+    return annotated
 
 
 def get_region_metrics(gray, region_names):
@@ -514,6 +533,7 @@ class ImageQualityDetector:
         if not files:
             raise RuntimeError("输入目录中没有找到 jpg/jpeg/png/bmp 图片。")
 
+        self.progress(0, len(files))
         for index, image_path in enumerate(files, 1):
             self.log(f"正在检测：{image_path.name}")
             results.append(self._process_one(image_path, ok_dir, ng_dir, region_names))

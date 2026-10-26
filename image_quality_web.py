@@ -79,6 +79,7 @@ app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * 1024
 
 jobs = {}
 jobs_lock = threading.Lock()
+image_job_lock = threading.Lock()
 ocr_module_cache = None
 ocr_module_lock = threading.Lock()
 
@@ -450,8 +451,16 @@ def cleanup_uploaded_batch(config):
 
 
 def run_detection_job(job_id, config):
+    # Large images must not multiply peak memory usage on a small web instance.
+    append_log(job_id, "任务已排队，等待图片检测资源")
+    with image_job_lock:
+        _run_image_detection_job(job_id, config)
+
+
+def _run_image_detection_job(job_id, config):
+    started_at = time.time()
     try:
-        update_job(job_id, status="running", config=config)
+        update_job(job_id, status="running", config=config, started_at_ts=started_at, elapsed_seconds=0, eta_seconds=None)
         append_log(job_id, "开始检测任务")
         append_log(job_id, f"检测器版本：{DETECTOR_VERSION}")
         append_log(job_id, f"OK输出目录：{config['ok_dir']}")
@@ -460,7 +469,9 @@ def run_detection_job(job_id, config):
 
         def progress(done, total):
             percent = round(done / total * 100) if total else 0
-            update_job(job_id, done=done, total=total, percent=percent)
+            elapsed = max(0, time.time() - started_at)
+            eta = round(elapsed / done * (total - done)) if done and total else None
+            update_job(job_id, done=done, total=total, percent=percent, elapsed_seconds=round(elapsed), eta_seconds=eta)
 
         web_config = dict(config)
         web_config["generate_report"] = False
@@ -469,11 +480,12 @@ def run_detection_job(job_id, config):
         payload = detector.run()
         results = payload["results"]
         info = output_info(config, results)
-        update_job(job_id, status="done", percent=100, results=results, result_rows=result_summary(results), output_info=info)
-        append_log(job_id, f"检测完成，标注图片已保存 {info['saved_count']} 张，失败 {info['failed_count']} 张")
+        elapsed = round(time.time() - started_at, 1)
+        update_job(job_id, status="done", percent=100, elapsed_seconds=elapsed, eta_seconds=0, results=results, result_rows=result_summary(results), output_info=info)
+        append_log(job_id, f"检测完成，耗时 {elapsed} 秒，标注图片已保存 {info['saved_count']} 张，失败 {info['failed_count']} 张")
         append_log(job_id, "Excel 不会自动生成；需要时点击“下载 Excel 报告”")
     except Exception as exc:
-        update_job(job_id, status="error")
+        update_job(job_id, status="error", elapsed_seconds=round(time.time() - started_at, 1))
         append_log(job_id, f"检测失败：{exc}")
 
 
@@ -1101,6 +1113,8 @@ def job_status(job_id):
     if not job:
         return jsonify({"ok": False, "error": "任务不存在"}), 404
     public_job = dict(job)
+    if job.get("status") == "running" and job.get("started_at_ts"):
+        public_job["elapsed_seconds"] = round(max(0, time.time() - job["started_at_ts"]))
     public_job.pop("results", None)
     public_job.pop("quality_payload", None)
     public_job.pop("config", None)

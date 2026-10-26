@@ -709,14 +709,14 @@ function renderDashboard() {
     return;
   }
   dashboardNodes.todayImages.textContent = `${dashboardState.todayImages} 张`;
-  dashboardNodes.ok.textContent = `${dashboardState.ok} 张`;
-  dashboardNodes.warning.textContent = `${dashboardState.warning} 张`;
-  dashboardNodes.ng.textContent = `${dashboardState.ng} 张`;
-  dashboardNodes.reports.textContent = `${dashboardState.reports} 份`;
-  dashboardNodes.image.textContent = dashboardState.image;
-  dashboardNodes.video.textContent = dashboardState.video;
-  dashboardNodes.ocr.textContent = dashboardState.ocr;
-  dashboardNodes.total.textContent = dashboardState.total;
+  if (dashboardNodes.ok) dashboardNodes.ok.textContent = `${dashboardState.ok} 张`;
+  if (dashboardNodes.warning) dashboardNodes.warning.textContent = `${dashboardState.warning} 张`;
+  if (dashboardNodes.ng) dashboardNodes.ng.textContent = `${dashboardState.ng} 张`;
+  if (dashboardNodes.reports) dashboardNodes.reports.textContent = `${dashboardState.reports} 份`;
+  if (dashboardNodes.image) dashboardNodes.image.textContent = dashboardState.image;
+  if (dashboardNodes.video) dashboardNodes.video.textContent = dashboardState.video;
+  if (dashboardNodes.ocr) dashboardNodes.ocr.textContent = dashboardState.ocr;
+  if (dashboardNodes.total) dashboardNodes.total.textContent = dashboardState.total;
 }
 
 function loadDetectionHistory() {
@@ -1361,6 +1361,7 @@ function renderEnhanceJob(job) {
 }
 
 function renderJob(job) {
+  const elapsedText = formatDuration(job.elapsed_seconds || 0);
   const statusMap = {
     queued: "排队中",
     running: "运行中",
@@ -1370,7 +1371,7 @@ function renderJob(job) {
   statusText.textContent = statusMap[job.status] || job.status;
   countText.textContent = `${job.done || 0}/${job.total || 0}`;
   setProgress(job.percent || 0);
-  messageText.textContent = job.message || "等待更新";
+  messageText.textContent = `${job.message || "等待更新"} · 已用时 ${elapsedText}`;
   reportPath.textContent = job.report_path || (job.status === "done" ? "尚未生成，点击按钮后下载" : "检测完成后可按需生成并下载");
   downloadReport.disabled = job.status !== "done";
   downloadCsvReport.disabled = job.status !== "done";
@@ -1381,19 +1382,25 @@ function renderJob(job) {
   recordCompletedJob(job, "image");
   addHistoryFromJob(job, "image");
   if (job.status === "running") {
-    updateMascot("running", "CodexPet 检测图片中", `${job.done || 0}/${job.total || 0}，正在分析图片质量`, "", {
+    updateMascot("running", "CodexPet 检测图片中", `${job.done || 0}/${job.total || 0}，正在分析图片质量`, `已用时 ${elapsedText} · 预计还需 ${formatDuration(job.eta_seconds)}`, {
       task: `图片 ${job.done || 0}/${job.total || 0}`,
       energy: Math.max(12, Math.min(96, Number(job.percent || 0))),
     });
   } else if (job.status === "done") {
-    updateMascot("done", "CodexPet 已完成", "评分已更新，可以下载 Excel 报告", "", { task: "报告就绪" });
+    updateMascot("done", "CodexPet 已完成", "评分已更新，可以下载 Excel 报告", `总耗时 ${elapsedText}`, { task: "报告就绪" });
   } else if (job.status === "error") {
-    updateMascot("error", "CodexPet 发现问题", "看一下右侧日志，我会帮你定位", "", { task: "等待修复" });
+    updateMascot("error", "CodexPet 发现问题", "看一下右侧日志，我会帮你定位", `已用时 ${elapsedText}`, { task: "等待修复" });
   }
 }
 
 async function pollJob(jobId) {
   const response = await fetch(`/api/jobs/${jobId}`);
+  if (response.status === 404) {
+    throw new Error("任务记录已丢失，服务可能已重启，请重新提交图片。");
+  }
+  if (!response.ok) {
+    throw new Error(`服务暂时无法返回进度（HTTP ${response.status}），请稍后重试。`);
+  }
   const payload = await response.json();
   if (!payload.ok) {
     throw new Error(payload.error || "任务查询失败");
@@ -1401,10 +1408,11 @@ async function pollJob(jobId) {
   renderJob(payload.job);
 
   if (payload.job.status === "done" || payload.job.status === "error") {
-    clearInterval(pollTimer);
+    clearTimeout(pollTimer);
     pollTimer = null;
     submitButton.disabled = false;
   }
+  return payload.job.status;
 }
 
 async function pollVideoJob(jobId) {
@@ -1523,17 +1531,26 @@ form.addEventListener("submit", async (event) => {
     }
 
     if (pollTimer) {
-      clearInterval(pollTimer);
+      clearTimeout(pollTimer);
     }
     currentJobId = payload.job_id;
-    await pollJob(payload.job_id);
-    pollTimer = setInterval(() => pollJob(payload.job_id).catch((error) => {
-      clearInterval(pollTimer);
-      pollTimer = null;
-      submitButton.disabled = false;
-      statusText.textContent = "失败";
-      messageText.textContent = error.message;
-    }), 900);
+    const poll = async () => {
+      try {
+        const status = await pollJob(payload.job_id);
+        if (status !== "done" && status !== "error") {
+          pollTimer = setTimeout(poll, 900);
+        }
+      } catch (error) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+        submitButton.disabled = false;
+        statusText.textContent = "失败";
+        messageText.textContent = error.message;
+        logs.textContent += `\n[error] ${error.message}`;
+        updateMascot("error", "CodexPet 连接中断", error.message, "", { task: "等待重试" });
+      }
+    };
+    await poll();
   } catch (error) {
     submitButton.disabled = false;
     statusText.textContent = "失败";
