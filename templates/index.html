@@ -275,7 +275,7 @@
           </div>
           <div class="module-help-card">
             <strong>检测说明</strong>
-            <span>支持 JPG、PNG、BMP 等格式，建议单张图片不超过 30MB。</span>
+            <span title="普通 JPEG 最多 4800 万像素；渐进式 JPEG、PNG、BMP 最多 2400 万像素。最长边 16384 像素，单张不超过 30MB。超限会提示，不会自动缩放。">支持 JPG、PNG、BMP；单张≤30MB，普通 JPEG≤4800 万像素，其他编码≤2400 万像素。</span>
           </div>
         </div>
         <form id="detectForm" class="panel form-panel">
@@ -1244,6 +1244,6 @@
   <script>
     window.WEIGHT_MODES = {{ weight_modes|tojson }};
   </script>
-  <script src="{{ url_for('static', filename='app.js') }}?v=image-performance-20261026"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=image-memory-v3-20261026"></script>
 </body>
 </html>

@@ -23,6 +23,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from PIL import Image as PILImage, UnidentifiedImageError
 from flask import Flask, Response, jsonify, render_template, request, send_file
 from werkzeug.utils import secure_filename
 
@@ -119,6 +120,8 @@ def append_log(job_id, message):
         job["logs"].append(f"[{now}] {message}")
         job["logs"] = job["logs"][-300:]
         job["message"] = message
+    # Keep phase diagnostics even if the hosting platform restarts the worker.
+    print(f"[job {job_id}] {message}", flush=True)
 
 
 def snapshot_job(job_id):
@@ -457,14 +460,39 @@ def run_detection_job(job_id, config):
         _run_image_detection_job(job_id, config)
 
 
+def validate_web_image_inputs(input_dir, log):
+    directory = Path(input_dir)
+    if not directory.is_dir():
+        return
+    for image_path in directory.iterdir():
+        if not image_path.is_file() or image_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            continue
+        if image_path.stat().st_size > 30 * 1024 * 1024:
+            raise ValueError(f"{image_path.name} 超过单张 30MB 的在线处理限制，请减小文件后重试。")
+        try:
+            with PILImage.open(image_path) as header:
+                width, height = header.size
+                baseline_jpeg = header.format == "JPEG" and header.mode in ("RGB", "L") and not (header.info.get("progressive") or header.info.get("progression"))
+                max_pixels = 48_000_000 if baseline_jpeg else 24_000_000
+        except PILImage.DecompressionBombError as exc:
+            raise ValueError(f"{image_path.name} 声明的分辨率过大，请降低分辨率后重试。") from exc
+        except (UnidentifiedImageError, OSError):
+            # Preserve the detector's per-image ERROR result for unreadable inputs.
+            continue
+        log(f"图片输入：{image_path.name}，{width}×{height}，{image_path.stat().st_size / 1024 / 1024:.2f} MB")
+        if width * height > max_pixels or max(width, height) > 16384:
+            raise ValueError(
+                f"{image_path.name} 分辨率 {width}×{height} 超过当前在线实例的处理限制"
+                f"（此格式最多 {max_pixels // 1_000_000}MP，最长边 16384 像素）。"
+                "请降低分辨率后重试；本任务未自动缩放图片。"
+            )
+
+
 def _run_image_detection_job(job_id, config):
     started_at = time.time()
     try:
         update_job(job_id, status="running", config=config, started_at_ts=started_at, elapsed_seconds=0, eta_seconds=None)
         append_log(job_id, "开始检测任务")
-        append_log(job_id, f"检测器版本：{DETECTOR_VERSION}")
-        append_log(job_id, f"OK输出目录：{config['ok_dir']}")
-        append_log(job_id, f"NG输出目录：{config['ng_dir']}")
         append_log(job_id, f"报告目录：{config['report_dir']}")
 
         def progress(done, total):
@@ -476,6 +504,7 @@ def _run_image_detection_job(job_id, config):
         web_config = dict(config)
         web_config["generate_report"] = False
         web_config["return_results"] = True
+        validate_web_image_inputs(config["input_dir"], lambda msg: append_log(job_id, msg))
         detector = ImageQualityDetector(web_config, lambda msg: append_log(job_id, msg), progress)
         payload = detector.run()
         results = payload["results"]
@@ -487,6 +516,7 @@ def _run_image_detection_job(job_id, config):
     except Exception as exc:
         update_job(job_id, status="error", elapsed_seconds=round(time.time() - started_at, 1))
         append_log(job_id, f"检测失败：{exc}")
+        app.logger.exception("Image detection job %s failed", job_id)
 
 
 @app.route("/")

@@ -1394,12 +1394,21 @@ function renderJob(job) {
 }
 
 async function pollJob(jobId) {
-  const response = await fetch(`/api/jobs/${jobId}`);
+  let response;
+  try {
+    response = await fetch(`/api/jobs/${jobId}`);
+  } catch (_error) {
+    const error = new Error("进度连接中断，请检查网络或稍后重试。");
+    error.retryable = true;
+    throw error;
+  }
   if (response.status === 404) {
     throw new Error("任务记录已丢失，服务可能已重启，请重新提交图片。");
   }
   if (!response.ok) {
-    throw new Error(`服务暂时无法返回进度（HTTP ${response.status}），请稍后重试。`);
+    const error = new Error(`服务暂时无法返回进度（HTTP ${response.status}），请稍后重试。`);
+    error.retryable = [502, 503, 504].includes(response.status);
+    throw error;
   }
   const payload = await response.json();
   if (!payload.ok) {
@@ -1534,20 +1543,34 @@ form.addEventListener("submit", async (event) => {
       clearTimeout(pollTimer);
     }
     currentJobId = payload.job_id;
+    let retryCount = 0;
     const poll = async () => {
       try {
         const status = await pollJob(payload.job_id);
+        retryCount = 0;
         if (status !== "done" && status !== "error") {
           pollTimer = setTimeout(poll, 900);
         }
       } catch (error) {
+        if (error.retryable && retryCount < 3) {
+          const delay = 1000 * 2 ** retryCount;
+          retryCount += 1;
+          const message = `进度连接暂时中断，正在重连（${retryCount}/3），请稍候。`;
+          statusText.textContent = "重连中";
+          messageText.textContent = message;
+          logs.textContent += `\n[retry] ${error.message} ${message}`;
+          updateMascot("running", "CodexPet 正在重连", message, "", { task: "重连进度" });
+          pollTimer = setTimeout(poll, delay);
+          return;
+        }
         clearTimeout(pollTimer);
         pollTimer = null;
         submitButton.disabled = false;
-        statusText.textContent = "失败";
-        messageText.textContent = error.message;
-        logs.textContent += `\n[error] ${error.message}`;
-        updateMascot("error", "CodexPet 连接中断", error.message, "", { task: "等待重试" });
+        const message = error.retryable ? `${error.message} 已重连 3 次，仍无法恢复进度连接。` : error.message;
+        statusText.textContent = error.retryable ? "连接失败" : "失败";
+        messageText.textContent = message;
+        logs.textContent += `\n[error] ${message}`;
+        updateMascot("error", "CodexPet 连接中断", message, "", { task: "等待重试" });
       }
     };
     await poll();

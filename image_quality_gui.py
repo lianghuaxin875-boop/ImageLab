@@ -46,7 +46,7 @@ from PIL import Image as PILImage, ImageDraw, ImageFont
 
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
-DETECTOR_VERSION = "2026-05-12-safe-image-output-v2"
+DETECTOR_VERSION = "2026-10-26-memory-v3"
 WEIGHT_MODES = {
     "默认综合模式": (0.40, 0.20, 0.20, 0.10, 0.10),
     "Camera对焦测试模式": (0.60, 0.10, 0.10, 0.10, 0.10),
@@ -264,8 +264,20 @@ def calc_clarity_metrics(gray):
 
 
 def calc_noise(gray, ksize=5):
-    blur = cv2.GaussianBlur(gray, (ksize, ksize), 0)
-    return np.std(np.subtract(gray, blur, dtype=np.float32))
+    total = square_total = 0.0
+    height = gray.shape[0]
+    halo = ksize // 2
+    for start in range(0, height, 256):
+        end = min(start + 256, height)
+        source_start = max(0, start - halo)
+        block = gray[source_start:min(end + halo, height)]
+        rows = slice(start - source_start, end - source_start)
+        blur = cv2.GaussianBlur(block, (ksize, ksize), 0)[rows]
+        residual = np.subtract(gray[start:end], blur, dtype=np.float32)
+        total += float(residual.sum(dtype=np.float64))
+        np.square(residual, out=residual)
+        square_total += float(residual.sum(dtype=np.float64))
+    return np.float32(np.sqrt(max(0.0, square_total / gray.size - (total / gray.size) ** 2)))
 
 
 def calc_artifact(gray, width, height):
@@ -395,13 +407,22 @@ def calc_white_balance(color_metrics):
     return wb_score, level, f"{level}；{direction_desc}；RGB通道最大差 {max_diff:.2f}"
 
 
-def calc_luminance_histogram(gray):
+def calc_gray_histogram(gray):
+    histogram = np.zeros(256, dtype=np.int64)
+    for start in range(0, gray.shape[0], 256):
+        histogram += cv2.calcHist([gray[start:start + 256]], [0], None, [256], [0, 256]).ravel().astype(np.int64)
+    return histogram
+
+
+def calc_luminance_histogram(gray, histogram=None):
+    if histogram is None:
+        histogram = calc_gray_histogram(gray)
     total = gray.size
-    dark_ratio = float(np.sum(gray < 85) / total)
-    mid_ratio = float(np.sum((gray >= 85) & (gray < 170)) / total)
-    highlight_ratio = float(np.sum(gray >= 170) / total)
-    dead_black_ratio = float(np.sum(gray <= 5) / total)
-    dead_white_ratio = float(np.sum(gray >= 250) / total)
+    dark_ratio = float(histogram[:85].sum() / total)
+    mid_ratio = float(histogram[85:170].sum() / total)
+    highlight_ratio = float(histogram[170:].sum() / total)
+    dead_black_ratio = float(histogram[:6].sum() / total)
+    dead_white_ratio = float(histogram[250:].sum() / total)
 
     if dead_black_ratio >= 0.02:
         judgement = "存在死黑"
@@ -424,7 +445,7 @@ def calc_luminance_histogram(gray):
     }
 
 
-def annotate_image(image, score, status, metrics):
+def annotate_image(image, score, status, metrics, in_place=False):
     font = _load_chinese_font(22)
     title_font = _load_chinese_font(24)
     padding = 14
@@ -476,7 +497,7 @@ def annotate_image(image, score, status, metrics):
         y += line_height
 
     combined = PILImage.alpha_composite(pil_img, overlay).convert("RGB")
-    annotated = image.copy()
+    annotated = image if in_place else image.copy()
     annotated[:stripe_height] = cv2.cvtColor(np.array(combined), cv2.COLOR_RGB2BGR)
     return annotated
 
@@ -493,7 +514,7 @@ def get_region_metrics(gray, region_names):
         x0, x1 = j * wb, (j + 1) * wb if j < 2 else w
         block = gray[y0:y1, x0:x1]
         lap, ten = calc_clarity_metrics(block)
-        metrics[name] = (lap, ten, np.std(block))
+        metrics[name] = (lap, ten, cv2.meanStdDev(block)[1][0, 0])
     return metrics
 
 
@@ -567,7 +588,8 @@ class ImageQualityDetector:
         if not ok:
             raise RuntimeError(f"图片编码失败：{source_path.name}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(encoded.tobytes())
+        with output_path.open("wb") as output_file:
+            output_file.write(memoryview(encoded))
         return output_path
 
     def _process_one(self, image_path, ok_dir, ng_dir, region_names):
@@ -583,9 +605,11 @@ class ImageQualityDetector:
             }
 
         height, width = image.shape[:2]
+        self.log(f"图片已读取：{image_path.name}，分辨率 {width}×{height}（{width * height / 1_000_000:.1f} MP）")
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         weights = self.config["weights"]
 
+        self.log("正在计算清晰度")
         lap_val, ten_val = calc_clarity_metrics(gray)
         lap_score = round(score_laplacian(lap_val), 1)
         ten_score = round(score_tenengrad(ten_val), 1)
@@ -595,16 +619,19 @@ class ImageQualityDetector:
 
         gray_min, gray_max = int(gray.min()), int(gray.max())
         gray_range = gray_max - gray_min
-        std_val = np.std(gray)
+        self.log("正在计算对比度与曝光")
+        mean_value, std_value = cv2.meanStdDev(gray)
+        std_val = std_value[0, 0]
         std_score = round(score_std(std_val), 1)
         range_score = round(score_dynamic_range(gray_range), 1)
         contrast_score = round(std_score * 0.7 + range_score * 0.3, 1)
         contrast_level = level_from_score(contrast_score)
         contrast_desc, contrast_sug = contrast_desc_sug(std_score, range_score, contrast_score)
 
-        mean_bright = gray.mean()
-        over_ratio = np.sum(gray > 240) / gray.size
-        under_ratio = np.sum(gray < 30) / gray.size
+        histogram = calc_gray_histogram(gray)
+        mean_bright = mean_value[0, 0]
+        over_ratio = histogram[241:].sum() / gray.size
+        under_ratio = histogram[:30].sum() / gray.size
         bright_score = round(score_brightness(mean_bright), 1)
         over_score = round(score_overexposure(over_ratio), 1)
         under_score = round(score_overexposure(under_ratio), 1)
@@ -612,11 +639,13 @@ class ImageQualityDetector:
         exposure_level = level_from_score(exposure_score)
         exposure_desc, exposure_sug = exposure_desc_sug(mean_bright, bright_score, over_score, under_score, exposure_score)
 
+        self.log("正在估计噪声")
         noise_val = calc_noise(gray)
         noise_score = round(score_noise(noise_val), 1)
         noise_level = level_from_score(noise_score)
         noise_desc, noise_sug = noise_desc_sug(noise_score)
 
+        self.log("正在检测压缩伪影与白平衡")
         artifact_val = calc_artifact(gray, width, height)
         artifact_score = round(score_noise(artifact_val), 1)
         artifact_level = level_from_score(artifact_score)
@@ -624,7 +653,7 @@ class ImageQualityDetector:
 
         color_metrics = calc_color_cast(image)
         wb_score, wb_status, wb_desc = calc_white_balance(color_metrics)
-        hist_metrics = calc_luminance_histogram(gray)
+        hist_metrics = calc_luminance_histogram(gray, histogram)
 
         total_score = round(
             clarity_score * weights[0]
@@ -653,10 +682,11 @@ class ImageQualityDetector:
             "问题": issue,
         }
         try:
+            self.log("正在标注并保存图片")
             output_path = self._save_annotated_image(
                 image_path,
                 target_dir,
-                annotate_image(image, total_score, total_level, annotation_metrics),
+                annotate_image(image, total_score, total_level, annotation_metrics, in_place=True),
             )
             output_status = "已保存"
         except Exception as exc:
@@ -732,6 +762,7 @@ class ImageQualityDetector:
         }
 
         if self.config["analysis_mode"] == "区域检测" and region_names:
+            self.log("正在计算区域指标")
             for region_name, values in get_region_metrics(gray, region_names).items():
                 rlap, rten, rstd = values
                 record[f"{region_name}_Laplacian"] = round(rlap, 2)
